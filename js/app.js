@@ -798,3 +798,72 @@ window.addEventListener("hashchange", router);
 
 // 7. Виклик роутера при першому завантаженні сторінки
 window.addEventListener("DOMContentLoaded", router);
+
+// ПРАКТИЧНА РОБОТА 14: Node.js FETCH
+
+// Додамо блок в HTML програмно (щоб не ламати твою розмітку)
+const serverBlock = document.createElement('section');
+serverBlock.innerHTML = `
+    <hr>
+    <div style="background-color: #E8F5E9; padding: 20px; border-radius: 8px;">
+        <h2 style="color: #2E7D32;">Міста з Node.js Сервера (API)</h2>
+        <button id="btn-fetch-server" class="btn-small" style="background: #4CAF50; color: white;">⬇️ Завантажити з бекенду</button>
+        <div id="server-error" style="color: red; margin-top: 10px;"></div>
+        <ul id="server-cities-list" style="margin-top: 15px;"></ul>
+    </div>
+`;
+document.querySelector('main').appendChild(serverBlock);
+
+// Функція запиту до нашого локального API
+async function fetchCitiesFromServer() {
+    const list = document.getElementById('server-cities-list');
+    const errorBox = document.getElementById('server-error');
+    list.innerHTML = 'Завантаження...';
+    errorBox.textContent = '';
+
+    try {
+        // Звертаємося до НАШОГО локального ендпоінту
+        const response = await fetch('/api/cities');
+        
+        if (!response.ok) {
+            throw new Error(`Помилка сервера: ${response.status}`);
+        }
+
+        const cities = await response.json();
+        list.innerHTML = ''; // Очищаємо "Завантаження..."
+        
+        // Малюємо список
+        cities.forEach(city => {
+            const li = document.createElement('li');
+            li.innerHTML = `<strong>${city.name}</strong> (lat: ${city.lat}, lon: ${city.lon}) 
+                            <button onclick="testServerError('${city.id}')" style="font-size:0.7em;">Деталі</button>`;
+            list.appendChild(li);
+        });
+
+    } catch (error) {
+        console.error("Fetch помилка:", error);
+        errorBox.textContent = "Не вдалося з'єднатися з локальним сервером.";
+        list.innerHTML = '';
+    }
+}
+
+// Прив'язуємо подію до кнопки
+document.getElementById('btn-fetch-server').addEventListener('click', fetchCitiesFromServer);
+
+// Функція для перевірки 404 помилки (Крок 10)
+async function testServerError(id) {
+    // Спробуємо запросити неіснуючий ID, додавши до реального ID приставку "-wrong"
+    const badId = id + "-wrong"; 
+    try {
+        console.log(`Спроба знайти місто з ID: ${badId}`);
+        const response = await fetch(`/api/cities/${badId}`);
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            alert(`Сервер повернув помилку ${response.status}: ${errorData.error}`);
+            throw new Error(`Not Found: ${response.status}`);
+        }
+    } catch (e) {
+        console.error("Успішно перехоплено помилку сервера:", e.message);
+    }
+}

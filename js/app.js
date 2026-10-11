@@ -11,6 +11,12 @@ const forecastData = [
   { id: 7, day: "Нд", tempC: 5, description: "Ясно ☀️" },
 ];
 
+// ФУНКЦІЯ ЗАХИСТУ ВІД XSS (Екранування HTML)
+function escapeHtml(str) {
+    const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+    return String(str).replace(/[&<>"']/g, (ch) => map[ch]);
+}
+
 //  Вибираємо контейнери на сторінці
 /*const listContainer = document.querySelector("#forecast-list");
 const avgTempElement = document.querySelector("#avg-temp");
@@ -419,7 +425,7 @@ function renderSavedCities(cities) {
     div.innerHTML = `
             <div>
                 <!-- РОУТИНГ ПР13: Посилання на деталі міста з параметром id -->
-                <a href="#/cities/${city.id}" class="city-link" data-link><strong>${city.name}</strong></a> 
+                <a href="#/cities/${city.id}" class="city-link" data-link><strong>${escapeHtml(city.name)}</strong></a> 
                 <span style="color:#777; font-size: 0.85em;">(lat: ${city.lat}, lon: ${city.lon})</span><br>
                 Останній прогноз: <b>${city.temperature}°C</b>, ${city.weatherCode} <br>
                 <small style="color:#999;">Час запису: ${city.time}</small>

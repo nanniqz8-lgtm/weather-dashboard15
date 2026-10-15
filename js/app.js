@@ -17,58 +17,33 @@ function escapeHtml(str) {
     return String(str).replace(/[&<>"']/g, (ch) => map[ch]);
 }
 
-//  Вибираємо контейнери на сторінці
-/*const listContainer = document.querySelector("#forecast-list");
-const avgTempElement = document.querySelector("#avg-temp");
+function renderForecast(data, targetContainer = document.querySelector("#forecast-list")) {
+  if (!targetContainer) return;
+  targetContainer.innerHTML = "";
 
-//  Функція рендеру
-function renderForecast(data) {
-  // Програмно очищаємо статичні картки-заглушки з HTML
-  listContainer.innerHTML = "";
-
-  let tempSum = 0; // Змінна для накопичення суми температур
-
-  // Цикл перебору масиву
   for (const item of data) {
-    // Створюємо нові HTML-елементи (згідно з варіантом)
     const card = document.createElement("article");
     const title = document.createElement("h3");
     const details = document.createElement("p");
 
-    // Наповнюємо їх текстом (textContent безпечний для виведення тексту)
     title.textContent = item.day;
     details.textContent = `${item.tempC}°C, ${item.description}`;
 
-    // Відновлюємо базовий клас для сітки
     card.classList.add("card");
 
-    //УМОВА - додаємо клас 'cold', якщо температура < 0
     if (item.tempC < 0) {
       card.classList.add("cold");
     } else if (item.tempC >= 20) {
-      card.classList.add("temp-warm"); // теплі стилі з ПР5
+      card.classList.add("temp-warm");
     } else {
-      card.classList.add("temp-cool"); // прохолодні стилі з ПР5
+      card.classList.add("temp-cool");
     }
 
-    // Вкладаємо заголовок і текст усередину картки
     card.append(title);
     card.append(details);
-
-    // Вкладаємо готову картку в контейнер на сторінці
-    listContainer.append(card);
-
-    // Накопичуємо суму для середньої температури
-    tempSum += item.tempC;
+    targetContainer.append(card);
   }
-
-  //  ПІДСУМОК - обчислюємо середню температуру і оновлюємо DOM
-  const avgTemp = (tempSum / data.length).toFixed(1); // toFixed(1) залишає 1 знак після коми
-  avgTempElement.textContent = avgTemp;
 }
-
-// Викликаємо функцію, передаючи їй масив
-renderForecast(forecastData); */
 
 /*ПРАКТИЧНА РОБОТА 8: ПОДІЇ ТА ФОРМИ*/
 
@@ -761,41 +736,52 @@ function router() {
 // 4. View-функція для відображення деталей конкретного міста (Використовує IndexedDB з ПР11)
 async function loadCityDetail(params) {
   const container = document.getElementById("city-detail-content");
-  container.innerHTML = "<p>Завантаження даних...</p>"; // Очищуємо та показуємо статус
+  container.innerHTML = ""; 
 
   try {
-    const cities = await getAllCitiesDB(); // Беремо всі міста з IndexedDB
-    // Шукаємо місто, id якого збігається з параметром з URL
-    const city = cities.find((c) => c.id === params.id);
+    const cities = await getAllCitiesDB();
+    const city = cities.find((c) => String(c.id) === String(params.id));
 
     if (city) {
-      // Рендеримо деталі (перевикористовуємо дані з ПР11)
-      container.innerHTML = `
-                <h3 style="color: #1D4A7A; margin-top: 0;">${city.name}</h3>
-                <p><strong>Координати:</strong> Широта ${city.lat}, Довгота ${city.lon}</p>
-                <p><strong>Збережена температура:</strong> <span style="font-size: 1.5em; color: #E65100;">${city.temperature}°C</span></p>
-                <p><strong>Опис погоди:</strong> ${city.weatherCode}</p>
-                <hr>
-                <p style="color: #666; font-size: 0.9em;">Точний час запису у базу даних: ${city.time}</p>
-                <p style="color: #666; font-size: 0.9em;">Унікальний ідентифікатор запису: ${city.id}</p>
-            `;
+      const detailCardsData = [
+        {
+          // ВИПРАВЛЕННЯ: Додано escapeHtml для city.name
+          day: `${escapeHtml(city.name)} (Збережено о ${city.time})`,
+          tempC: city.temperature,
+          description: `${escapeHtml(String(city.weatherCode))} | Координати: ${city.lat}, ${city.lon}`,
+        },
+      ];
+
+      const url = `https://api.open-meteo.com/v1/forecast?latitude=${city.lat}&longitude=${city.lon}&current=temperature_2m,weather_code&timezone=auto`;
+      const response = await fetch(url);
+      if (response.ok) {
+        const liveData = await response.json();
+        detailCardsData.push({
+          // ВИПРАВЛЕННЯ: Додано escapeHtml
+          day: `${escapeHtml(city.name)} (Актуальний прогноз за координатами)`,
+          tempC: liveData.current.temperature_2m,
+          description: getWeatherDescription(liveData.current.weather_code),
+        });
+      }
+
+      renderForecast(detailCardsData, container);
     } else {
-      container.innerHTML =
-        '<p style="color: red;">Помилка: Запис про це місто не знайдено в базі даних.</p>';
+      const errorMsg = document.createElement("p");
+      errorMsg.className = "status-msg error";
+      errorMsg.textContent = "Помилка: Запис про це місто не знайдено в базі даних.";
+      container.append(errorMsg);
     }
   } catch (error) {
-    container.innerHTML =
-      '<p style="color: red;">Помилка доступу до бази даних.</p>';
+    console.error("Помилка:", error);
   }
 }
 
 // 5. Перехоплення кліків по посиланнях з атрибутом data-link (за вимогою завдання)
 document.body.addEventListener("click", (e) => {
-  // Шукаємо, чи клікнули ми по тегу <a> з атрибутом data-link
   const link = e.target.closest("a[data-link]");
   if (link) {
-    // У Hash-роутингу браузер сам змінить URL, але ми можемо використати це для кастомної логіки
-    // preventDefault() тут не обов'язковий для hash, але доданий для відповідності інструкції
+    e.preventDefault();
+    location.hash = link.getAttribute("href");
   }
 });
 
@@ -828,7 +814,6 @@ async function fetchCitiesFromServer() {
     errorBox.textContent = '';
 
     try {
-        // Звертаємося до НАШОГО локального ендпоінту
         const response = await fetch('/api/cities');
         
         if (!response.ok) {
@@ -836,12 +821,12 @@ async function fetchCitiesFromServer() {
         }
 
         const cities = await response.json();
-        list.innerHTML = ''; // Очищаємо "Завантаження..."
+        list.innerHTML = ''; 
         
-        // Малюємо список
         cities.forEach(city => {
             const li = document.createElement('li');
-            li.innerHTML = `<strong>${city.name}</strong> (lat: ${city.lat}, lon: ${city.lon}) 
+            // ВИПРАВЛЕННЯ: Додано escapeHtml для city.name
+            li.innerHTML = `<strong>${escapeHtml(city.name)}</strong> (lat: ${city.lat}, lon: ${city.lon}) 
                             <button onclick="testServerError('${city.id}')" style="font-size:0.7em;">Деталі</button>`;
             list.appendChild(li);
         });
